@@ -127,6 +127,7 @@ public class TestMain implements WeaveDeviceManager.CompletionHandler, WdmClient
         GenericTraitUpdatableDataSink testCTrait;
 
         ResourceIdentifier resourceIdentifier = new ResourceIdentifier();
+
         localSettingsTrait = mockWdmClient.newDataSink(resourceIdentifier, 20, 0, "/");
         testCTrait = mockWdmClient.newDataSink(resourceIdentifier, 593165827, 0, "/");
         localSettingsTrait.setCompletionHandler(this);
@@ -153,6 +154,8 @@ public class TestMain implements WeaveDeviceManager.CompletionHandler, WdmClient
         GenericTraitUpdatableDataSink testCTrait;
 
         ResourceIdentifier resourceIdentifier = new ResourceIdentifier();
+        int ExpectedSystemErrors[] = {0, 0, 0, 0, 0, 0};
+
         localSettingsTrait = mockWdmClient.newDataSink(resourceIdentifier, 20, 0, "/");
         testCTrait = mockWdmClient.newDataSink(resourceIdentifier, 593165827, 0, "/");
         localSettingsTrait.setCompletionHandler(this);
@@ -176,7 +179,128 @@ public class TestMain implements WeaveDeviceManager.CompletionHandler, WdmClient
         System.out.println("testWdmClientDataSinkSetFlushData Test Succeeded");
     }
 
-    void testWdmClientDataSinkRefreshGetDataRefresh(WeaveDeviceManager deviceMgr)
+    void testWdmClientDataSinkSetFlushInvalidData(WeaveDeviceManager deviceMgr)
+    {
+        WdmClientFactory wdmClientFactory = new WdmClientFactory();
+        WdmClient mockWdmClient = wdmClientFactory.create(deviceMgr);
+        mockWdmClient.setCompletionHandler(this);
+
+        GenericTraitUpdatableDataSink localSettingsTrait;
+        GenericTraitUpdatableDataSink testCTrait;
+
+        ResourceIdentifier resourceIdentifier = new ResourceIdentifier();
+
+        localSettingsTrait = mockWdmClient.newDataSink(resourceIdentifier, 20, 0, "/");
+        testCTrait = mockWdmClient.newDataSink(resourceIdentifier, 593165827, 0, "/");
+        localSettingsTrait.setCompletionHandler(this);
+        testCTrait.setCompletionHandler(this);
+
+        // set invalid data in /1
+        localSettingsTrait.set("/1", 0.1);
+        testCTrait.set("/1", false);
+        testCTrait.setSigned("/2", 15);
+
+        testCTrait.setUnsigned("/3/1", -5);
+        testCTrait.set("/3/2", false);
+        testCTrait.setUnsigned("/4", -6);
+
+        TestResult = null;
+        mockWdmClient.beginFlushUpdate();
+        ExpectSuccess("FlushUpdate");
+
+        System.out.println("testWdmClientDataSinkSetFlushInvalidData Test Stage 1 Succeeded");
+
+        //flush again, expect the empty path result
+
+        TestResult = null;
+        mockWdmClient.beginFlushUpdate();
+        ExpectSuccess("FlushUpdate");
+        System.out.println("testWdmClientDataSinkSetFlushInvalidData Test Stage 2 Succeeded");
+
+        mockWdmClient.close();
+        mockWdmClient = null;
+        localSettingsTrait = null;
+        testCTrait = null;
+        System.out.println("testWdmClientDataSinkSetFlushInvalidData Test Succeeded");
+    }
+
+    void testWdmClientDataSinkSetFlushDataDeleteData(WeaveDeviceManager deviceMgr)
+    {
+        WdmClientFactory wdmClientFactory = new WdmClientFactory();
+        WdmClient mockWdmClient = wdmClientFactory.create(deviceMgr);
+        mockWdmClient.setCompletionHandler(this);
+
+        GenericTraitUpdatableDataSink localSettingsTrait;
+        GenericTraitUpdatableDataSink testCTrait;
+
+        ResourceIdentifier resourceIdentifier = new ResourceIdentifier();
+        int ExpectedSystemErrors[] = {0};
+        localSettingsTrait = mockWdmClient.newDataSink(resourceIdentifier, 20, 0, "/");
+        testCTrait = mockWdmClient.newDataSink(resourceIdentifier, 593165827, 0, "/");
+        localSettingsTrait.setCompletionHandler(this);
+        testCTrait.setCompletionHandler(this);
+
+        localSettingsTrait.set("/1", "en-US");
+        testCTrait.set("/1", false);
+        testCTrait.setSigned("/2", 15);
+        testCTrait.setUnsigned("/3/1", -5);
+        testCTrait.set("/3/2", false);
+        testCTrait.setUnsigned("/4", -5);
+
+        localSettingsTrait.deleteData("/1");
+        testCTrait.deleteData("/1");
+        testCTrait.deleteData("/2");
+        testCTrait.deleteData("/3/1");
+        testCTrait.deleteData("/3/2");
+ 
+        TestResult = null;
+        mockWdmClient.beginFlushUpdate();
+        ExpectSuccess("FlushUpdate");
+
+        mockWdmClient.close();
+        mockWdmClient = null;
+        localSettingsTrait = null;
+        testCTrait = null;
+        System.out.println("testWdmClientDataSinkSetFlushDataDeleteData Test Succeeded");
+    }
+
+    void testWdmClientDataSinkSetClearFlushData(WeaveDeviceManager deviceMgr)
+    {
+        WdmClientFactory wdmClientFactory = new WdmClientFactory();
+        WdmClient mockWdmClient = wdmClientFactory.create(deviceMgr);
+        mockWdmClient.setCompletionHandler(this);
+
+        GenericTraitUpdatableDataSink localSettingsTrait;
+        GenericTraitUpdatableDataSink testCTrait;
+
+        ResourceIdentifier resourceIdentifier = new ResourceIdentifier();
+        localSettingsTrait = mockWdmClient.newDataSink(resourceIdentifier, 20, 0, "/");
+        testCTrait = mockWdmClient.newDataSink(resourceIdentifier, 593165827, 0, "/");
+        localSettingsTrait.setCompletionHandler(this);
+        testCTrait.setCompletionHandler(this);
+
+        localSettingsTrait.set("/1", "en-US");
+        testCTrait.set("/1", false);
+        testCTrait.setSigned("/2", 15);
+        testCTrait.setUnsigned("/3/1", -5);
+        testCTrait.set("/3/2", false);
+        testCTrait.setUnsigned("/4", -5);
+
+        localSettingsTrait.clear();
+        testCTrait.clear();
+
+        TestResult = null;
+        mockWdmClient.beginFlushUpdate();
+        ExpectSuccess("FlushUpdate");
+
+        mockWdmClient.close();
+        mockWdmClient = null;
+        localSettingsTrait = null;
+        testCTrait = null;
+        System.out.println("testWdmClientDataSinkSetClearFlushData Test Succeeded");
+    }
+
+    void testWdmClientDataSinkRefreshGetDataRefreshClear(WeaveDeviceManager deviceMgr)
     {
         WdmClientFactory wdmClientFactory = new WdmClientFactory();
         WdmClient mockWdmClient = wdmClientFactory.create(deviceMgr);
@@ -229,11 +353,13 @@ public class TestMain implements WeaveDeviceManager.CompletionHandler, WdmClient
         testCTraitVersion = testCTrait.getVersion();
         System.out.println("testCTrait GetVersion " + testCTraitVersion);
 
+        testCTrait.clear();
+
         mockWdmClient.close();
         mockWdmClient = null;
         localSettingsTrait = null;
         testCTrait = null;
-        System.out.println("testWdmClientDataSinkRefreshGetDataRefresh Test Succeeded");
+        System.out.println("testWdmClientDataSinkRefreshGetDataRefreshClear Test Succeeded");
     }
 
     void testWdmClientDataSinkRefreshIndividualGetDataRefresh(WeaveDeviceManager deviceMgr)
@@ -656,11 +782,14 @@ public class TestMain implements WeaveDeviceManager.CompletionHandler, WdmClient
     void RunMockWdmClientTest(WeaveDeviceManager deviceMgr)
     {
         System.out.println("Run Weave Data Management Start");
-
         testWdmClientCreateClose(deviceMgr);
         testWdmClientDataSinkCreateClose(deviceMgr);
+        testWdmClientDataSinkEmptyFlushData(deviceMgr);
         testWdmClientDataSinkSetFlushData(deviceMgr);
-        testWdmClientDataSinkRefreshGetDataRefresh(deviceMgr);
+        testWdmClientDataSinkSetFlushInvalidData(deviceMgr);
+        testWdmClientDataSinkSetFlushDataDeleteData(deviceMgr);
+        testWdmClientDataSinkSetClearFlushData(deviceMgr);
+        testWdmClientDataSinkRefreshGetDataRefreshClear(deviceMgr);
         testWdmClientDataSinkRefreshIndividualGetDataRefresh(deviceMgr);
         testWdmClientDataSinkSetFlushRefreshGetData(deviceMgr);
         testWdmClientDataSinkSetFlushRefreshGetBigInteger(deviceMgr);
@@ -668,6 +797,7 @@ public class TestMain implements WeaveDeviceManager.CompletionHandler, WdmClient
         testWdmClientDataSinkSetRefreshFlushGetData(deviceMgr);
         testWdmClientDataSinkResourceIdentifierMakeResTypeIDInt(deviceMgr);
         testWdmClientDataSinkResourceIdentifierMakeResTypeIdBytes(deviceMgr);
+
         System.out.println("Run Weave Data Management Complete");
     }
 
@@ -1156,8 +1286,30 @@ public class TestMain implements WeaveDeviceManager.CompletionHandler, WdmClient
     {
     }
 
-    public void onFlushUpdateComplete()
+    public void onFlushUpdateComplete(Throwable[] exceptions, WdmClient wdmClient)
     {
+        if (exceptions != null)
+        {
+            for (int i = 0; i < exceptions.length; i++)
+            {
+                System.out.println(exceptions[i].toString());
+
+                if (exceptions[i] instanceof WdmClientFlushUpdateException)
+                {
+                    GenericTraitUpdatableDataSink dataSink =  ((WdmClientFlushUpdateException)exceptions[i]).getDataSink(wdmClient);
+                    System.out.println(((WdmClientFlushUpdateDeviceException)exceptions[i]).path);
+                    System.out.println(((WdmClientFlushUpdateDeviceException)exceptions[i]).StatusCode);
+                    dataSink.deleteData(((WdmClientFlushUpdateException)exceptions[i]).path);
+                }
+                else if (exceptions[i] instanceof WdmClientFlushUpdateDeviceException)
+                {
+                    GenericTraitUpdatableDataSink dataSink =  ((WdmClientFlushUpdateDeviceException)exceptions[i]).getDataSink(wdmClient);
+                    System.out.println(((WdmClientFlushUpdateDeviceException)exceptions[i]).path);
+                    System.out.println(((WdmClientFlushUpdateDeviceException)exceptions[i]).StatusCode);
+                    dataSink.deleteData(((WdmClientFlushUpdateDeviceException)exceptions[i]).path);
+                }
+            }
+        }
         System.out.println("    Flush Update complete");
         TestResult = "Success";
     }

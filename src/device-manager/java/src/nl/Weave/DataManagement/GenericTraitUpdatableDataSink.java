@@ -332,6 +332,9 @@ public interface GenericTraitUpdatableDataSink
     /** Returns the version of the trait represented by this data sink. */
     public long getVersion();
 
+    /** Delete the trait property data. */
+    public void deleteData(String path);
+
     /**
      * Begins a sync of the trait data. The result of this operation can be observed through the {@link CompletionHandler}
      * that has been assigned via {@link #setCompletionHandler}.

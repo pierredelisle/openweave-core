@@ -232,6 +232,8 @@ bool FormatWeaveError(char * buf, uint16_t bufSize, int32_t err)
     case WEAVE_ERROR_SESSION_KEY_SUSPENDED                      : desc = "Session key suspended"; break;
     case WEAVE_ERROR_UNSUPPORTED_WIRELESS_REGULATORY_DOMAIN     : desc = "Unsupported wireless regulatory domain"; break;
     case WEAVE_ERROR_UNSUPPORTED_WIRELESS_OPERATING_LOCATION    : desc = "Unsupported wireless operating location"; break;
+    case WEAVE_ERROR_WDM_FLUSH_UPDATE_PATH_FAILED               : desc = "Failed to update specified path"; break;
+    case WEAVE_ERROR_WDM_REFRESH_DATA_FAILED                    : desc = "Failed to refresh data during wdm short-lived subscription"; break;
     }
 #endif // !WEAVE_CONFIG_SHORT_ERROR_STR
 

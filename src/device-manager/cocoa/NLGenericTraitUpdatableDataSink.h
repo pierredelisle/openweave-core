@@ -27,6 +27,7 @@
 #import "NLWeaveErrorCodes.h"
 
 typedef void (^GenericTraitUpdatableDataSinkCompletionBlock)(id owner, id data);
+typedef void (^GenericTraitUpdatableDataSinkDeviceStatusCompletionBlock)(id owner, id error, id statusProfileId, id statusCode);
 typedef void (^GenericTraitUpdatableDataSinkFailureBlock)(id owner, NSError * error);
 
 @interface NLGenericTraitUpdatableDataSink : NSObject
@@ -53,7 +54,7 @@ typedef void (^GenericTraitUpdatableDataSinkFailureBlock)(id owner, NSError * er
  * Begins a sync of the trait data. The result of this operation can be observed through the CompletionHandler
  * and failureHandler
  */
-- (void)refreshData:(GenericTraitUpdatableDataSinkCompletionBlock)completionHandler
+- (void)refreshData:(GenericTraitUpdatableDataSinkDeviceStatusCompletionBlock)completionHandler
             failure:(GenericTraitUpdatableDataSinkFailureBlock)failureHandler;
 
 /**
@@ -249,4 +250,6 @@ typedef void (^GenericTraitUpdatableDataSinkFailureBlock)(id owner, NSError * er
 /** Returns the version of the trait represented by this data sink. */
 - (WEAVE_ERROR)getVersion:(uint64_t *)val;
 
+/** Delete the trait property data. */
+- (WEAVE_ERROR)deleteData:(NSString *)path;
 @end

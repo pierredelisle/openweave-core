@@ -65,9 +65,11 @@ public interface WdmClient
     public CompletionHandler getCompletionHandler();
     public void setCompletionHandler(CompletionHandler compHandler);
 
+    public GenericTraitUpdatableDataSink getDataSink(long traitInstancePtr);
+
     public interface CompletionHandler
     {
-        void onFlushUpdateComplete();
+        void onFlushUpdateComplete(Throwable[] exceptions, WdmClient wdmClient);
         void onRefreshDataComplete();
         void onError(Throwable err);
     }

@@ -40,7 +40,7 @@ from threading import Thread, Lock, Event
 from ctypes import *
 from .WeaveUtility import WeaveUtility
 
-__all__ = [ 'DeviceStatusStruct', 'WeaveStackException', 'DeviceError', 'WeaveStackError', 'WeaveStack' ]
+__all__ = [ 'DeviceStatusStruct', 'WeaveStackException', 'DeviceError', 'WeaveStackError', 'WeaveStack']
 
 WeaveStackDLLBaseName = '_WeaveDeviceMgr.so'
 
@@ -82,13 +82,14 @@ class DeviceError(WeaveStackException):
         self.systemErrorCode = systemErrorCode
         if (msg == None):
             if (systemErrorCode):
-                return "[ %08X:%d ] (system err %d)" % (profileId, statusCode, systemErrorCode)
+                self.msg = "[ %08X:%d ] (system err %d)" % (profileId, statusCode, systemErrorCode)
             else:
-                return "[ %08X:%d ]" % (profileId, statusCode)
-        self.message = msg
+                self.msg = "[ %08X:%d ]" % (profileId, statusCode)
+        else:
+            self.msg = msg
 
     def __str__(self):
-        return "Device Error: " + self.message
+        return "Device Error: " + self.msg
 
 _CompleteFunct                              = CFUNCTYPE(None, c_void_p, c_void_p)
 _ErrorFunct                                 = CFUNCTYPE(None, c_void_p, c_void_p, c_ulong, POINTER(DeviceStatusStruct))

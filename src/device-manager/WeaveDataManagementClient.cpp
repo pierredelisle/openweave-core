@@ -498,7 +498,6 @@ WEAVE_ERROR GenericTraitUpdatableDataSink::GetBoolean(const char * apPath, bool 
     nl::Weave::TLV::TLVReader reader;
     PacketBuffer * pMsgBuf                = NULL;
     PropertyPathHandle propertyPathHandle = kNullPropertyPathHandle;
-    ;
     std::map<PropertyPathHandle, PacketBuffer *>::iterator it;
 
     err = GetSchemaEngine()->MapPathToHandle(apPath, propertyPathHandle);
@@ -537,7 +536,6 @@ WEAVE_ERROR GenericTraitUpdatableDataSink::GetBytes(const char * apPath, BytesDa
     nl::Weave::TLV::TLVReader reader;
     PacketBuffer * pMsgBuf                = NULL;
     PropertyPathHandle propertyPathHandle = kNullPropertyPathHandle;
-    ;
     std::map<PropertyPathHandle, PacketBuffer *>::iterator it;
 
     err = GetSchemaEngine()->MapPathToHandle(apPath, propertyPathHandle);
@@ -618,7 +616,6 @@ WEAVE_ERROR GenericTraitUpdatableDataSink::IsNull(const char * apPath, bool & aI
     nl::Weave::TLV::TLVReader reader;
     PacketBuffer * pMsgBuf                = NULL;
     PropertyPathHandle propertyPathHandle = kNullPropertyPathHandle;
-    ;
     std::map<PropertyPathHandle, PacketBuffer *>::iterator it;
 
     err = GetSchemaEngine()->MapPathToHandle(apPath, propertyPathHandle);
@@ -658,7 +655,6 @@ WEAVE_ERROR GenericTraitUpdatableDataSink::GetStringArray(const char * apPath, s
     nl::Weave::TLV::TLVReader reader;
     PacketBuffer * pMsgBuf                = NULL;
     PropertyPathHandle propertyPathHandle = kNullPropertyPathHandle;
-    ;
     TLVType OuterContainerType;
     std::map<PropertyPathHandle, PacketBuffer *>::iterator it;
 
@@ -736,6 +732,37 @@ WEAVE_ERROR GenericTraitUpdatableDataSink::Get(const char * apPath, T & aValue)
     SuccessOrExit(err);
 
 exit:
+    WeaveLogFunctError(err);
+    return err;
+}
+
+WEAVE_ERROR GenericTraitUpdatableDataSink::DeleteData(const char * apPath)
+{
+    WEAVE_ERROR err = WEAVE_NO_ERROR;
+    nl::Weave::TLV::TLVReader reader;
+    PacketBuffer * pMsgBuf                = NULL;
+    PropertyPathHandle propertyPathHandle = kNullPropertyPathHandle;
+    std::map<PropertyPathHandle, PacketBuffer *>::iterator it;
+
+    err = GetSchemaEngine()->MapPathToHandle(apPath, propertyPathHandle);
+    SuccessOrExit(err);
+
+    it = mPathTlvDataMap.find(propertyPathHandle);
+    VerifyOrExit(it != mPathTlvDataMap.end(), err = WEAVE_ERROR_INVALID_TLV_TAG);
+
+    if (NULL != it->second)
+    {
+        PacketBuffer::Free(it->second);
+        it->second = NULL;
+        WeaveLogProgress(DataManagement, "Deleted data in mPathTlvDataMap for path %s", apPath);
+    }
+
+    mPathTlvDataMap.erase(it);
+
+    err     = ClearUpdated(GetSubscriptionClient(), propertyPathHandle);
+
+exit:
+
     WeaveLogFunctError(err);
     return err;
 }
@@ -903,9 +930,9 @@ void WdmClient::ClientEventCallback(void * const aAppState, SubscriptionClient::
 {
     WEAVE_ERROR err              = WEAVE_NO_ERROR;
     WdmClient * const pWdmClient = reinterpret_cast<WdmClient *>(aAppState);
-
+    DeviceStatus * deviceStatus   = NULL;
     OpState savedOpState = pWdmClient->mOpState;
-    WeaveLogDetail(DataManagement, "WDM ClientEventCallback: current op is, %d", savedOpState);
+    WeaveLogDetail(DataManagement, "WdmClient ClientEventCallback: current op is, %d, event is %d", savedOpState, aEvent);
 
     switch (aEvent)
     {
@@ -984,31 +1011,43 @@ void WdmClient::ClientEventCallback(void * const aAppState, SubscriptionClient::
     case SubscriptionClient::kEvent_OnSubscriptionTerminated:
         WeaveLogDetail(DataManagement, "Client->kEvent_OnSubscriptionTerminated. Reason: %u, peer = 0x%" PRIX64 "\n",
                        aInParam.mSubscriptionTerminated.mReason, aInParam.mSubscriptionTerminated.mClient->GetPeerNodeId());
-        pWdmClient->mpSubscriptionClient->AbortSubscription();
-        err = WEAVE_ERROR_INCORRECT_STATE;
+        deviceStatus = new DeviceStatus();
+        deviceStatus->StatusProfileId = aInParam.mSubscriptionTerminated.mStatusProfileId;
+        deviceStatus->StatusCode = aInParam.mSubscriptionTerminated.mStatusCode;
+        deviceStatus->SystemErrorCode = aInParam.mSubscriptionTerminated.mReason;
+        err = WEAVE_ERROR_WDM_REFRESH_DATA_FAILED;
         break;
     case SubscriptionClient::kEvent_OnUpdateComplete:
-        if ((aInParam.mUpdateComplete.mReason == WEAVE_NO_ERROR) &&
+        VerifyOrExit(kOpState_FlushUpdate == savedOpState, err = WEAVE_ERROR_INCORRECT_STATE);
+        if ((aInParam.mUpdateComplete.mReason ==  WEAVE_NO_ERROR) &&
             (nl::Weave::Profiles::kWeaveProfile_Common == aInParam.mUpdateComplete.mStatusProfileId) &&
             (nl::Weave::Profiles::Common::kStatus_Success == aInParam.mUpdateComplete.mStatusCode))
         {
-            WeaveLogDetail(DataManagement, "Update: path result: success");
+            WeaveLogDetail(DataManagement, "Update: path result: success, tdh %" PRIu16 ", ph %" PRIu16 ".", aInParam.mUpdateComplete.mTraitDataHandle, aInParam.mUpdateComplete.mPropertyPathHandle);
         }
         else
         {
-            WeaveLogDetail(DataManagement, "Update: path failed: %s, %s, tdh %" PRIu16 ", will %sretry, discard failed change",
+
+            WeaveLogDetail(DataManagement, "Update: path failed: %s, %s, tdh %" PRIu16 ", ph %" PRIu16 ", %s, discard failed change",
                            ErrorStr(aInParam.mUpdateComplete.mReason),
                            nl::StatusReportStr(aInParam.mUpdateComplete.mStatusProfileId, aInParam.mUpdateComplete.mStatusCode),
-                           aInParam.mUpdateComplete.mTraitDataHandle, aInParam.mUpdateComplete.mWillRetry ? "" : "not ");
+                           aInParam.mUpdateComplete.mTraitDataHandle, aInParam.mUpdateComplete.mPropertyPathHandle,
+                           aInParam.mUpdateComplete.mWillRetry ? "will retry" : "will not retry");
+
+            err = pWdmClient->UpdateFailedPathResults(pWdmClient, aInParam.mUpdateComplete.mTraitDataHandle,
+                    aInParam.mUpdateComplete.mPropertyPathHandle, aInParam.mUpdateComplete.mReason,
+                    aInParam.mUpdateComplete.mStatusProfileId, aInParam.mUpdateComplete.mStatusCode);
         }
 
         break;
     case SubscriptionClient::kEvent_OnNoMorePendingUpdates:
-        // TODO: notify application with all status for updated paths
         WeaveLogDetail(DataManagement, "Update: no more pending updates");
         VerifyOrExit(kOpState_FlushUpdate == savedOpState, err = WEAVE_ERROR_INCORRECT_STATE);
         pWdmClient->mpSubscriptionClient->DiscardUpdates();
-        pWdmClient->mOnComplete.General(pWdmClient->mpContext, pWdmClient->mpAppReqState);
+        pWdmClient->mOnComplete.FlushUpdate(pWdmClient->mpContext, pWdmClient->mpAppReqState,
+                pWdmClient->mFailedFlushPathStatus.size(), pWdmClient->mFailedFlushPathStatus.data());
+        pWdmClient->mFailedFlushPathStatus.clear();
+        pWdmClient->mFailedPaths.clear();
         pWdmClient->mpContext = NULL;
         pWdmClient->ClearOpState();
         break;
@@ -1021,10 +1060,35 @@ void WdmClient::ClientEventCallback(void * const aAppState, SubscriptionClient::
 exit:
     if (WEAVE_NO_ERROR != err)
     {
-        WeaveLogError(DataManagement, "WDM ClientEventCallback failure: err = %d", err);
-        pWdmClient->mOnError(pWdmClient->mpContext, pWdmClient->mpAppReqState, err, NULL);
+        WeaveLogError(DataManagement, "WdmClient ClientEventCallback failure: err = %d", err);
+
+        if (pWdmClient->mOnError)
+        {
+            pWdmClient->mOnError(pWdmClient->mpContext, pWdmClient->mpAppReqState, err, deviceStatus);
+            pWdmClient->mOnError = NULL;
+        }
+
+        if (kOpState_FlushUpdate == savedOpState)
+        {
+            pWdmClient->mpSubscriptionClient->DiscardUpdates();
+            pWdmClient->mFailedFlushPathStatus.clear();
+            pWdmClient->mFailedPaths.clear();
+        }
+
+        if (kOpState_RefreshData == savedOpState)
+        {
+            pWdmClient->mpSubscriptionClient->AbortSubscription();
+            pWdmClient->mSinkCatalog.Iterate(ClearDataSinkVersion, pWdmClient);
+        }
+
         pWdmClient->mpContext = NULL;
         pWdmClient->ClearOpState();
+    }
+
+    if (deviceStatus != NULL)
+    {
+        delete deviceStatus;
+        deviceStatus = NULL;
     }
 
     return;
@@ -1050,6 +1114,8 @@ WEAVE_ERROR WdmClient::Init(WeaveMessageLayer * apMsgLayer, Binding * apBinding)
     State     = kState_Initialized;
     mpContext = NULL;
     ClearOpState();
+    mFailedFlushPathStatus.clear();
+    mFailedPaths.clear();
 
 exit:
     return WEAVE_NO_ERROR;
@@ -1060,6 +1126,39 @@ void WdmClient::SetNodeId(uint64_t aNodeId)
     mSinkCatalog.SetNodeId(aNodeId);
 }
 
+WEAVE_ERROR WdmClient::UpdateFailedPathResults(WdmClient * const apWdmClient, TraitDataHandle mTraitDataHandle,
+        PropertyPathHandle mPropertyPathHandle, uint32_t aReason, uint32_t aStatusProfileId, uint16_t aStatusCode)
+{
+    TraitDataSink * dataSink = NULL;
+    WEAVE_ERROR err          = WEAVE_NO_ERROR;
+    WdmClientFlushUpdateStatus updateStatus;
+    std::string path;
+
+    err = apWdmClient->mSinkCatalog.Locate(mTraitDataHandle, &dataSink);
+    SuccessOrExit(err);
+
+    err = dataSink->GetSchemaEngine()->MapHandleToPath(mPropertyPathHandle, path);
+    SuccessOrExit(err);
+
+    mFailedPaths.push_back(path);
+    updateStatus.mpPath = mFailedPaths.back().c_str();
+    updateStatus.mPathLen = mFailedPaths.back().length();
+    updateStatus.mErrorCode = aReason;
+    updateStatus.mDevStatus.SystemErrorCode = aReason;
+    updateStatus.mDevStatus.StatusProfileId = aStatusProfileId;
+    updateStatus.mDevStatus.StatusCode = aStatusCode;
+    updateStatus.mpDataSink = dataSink;
+    mFailedFlushPathStatus.push_back(updateStatus);
+    WeaveLogError(DataManagement, "Update: faild path is %s, length is %d", updateStatus.mpPath, updateStatus.mPathLen);
+
+exit:
+    if (WEAVE_NO_ERROR != err)
+    {
+        WeaveLogError(DataManagement, "Fail in UpdateFailedPathResults with err = %d", err);
+    }
+    return err;
+}
+
 WEAVE_ERROR WdmClient::NewDataSink(const ResourceIdentifier & aResourceId, uint32_t aProfileId, uint64_t aInstanceId,
                                    const char * apPath, GenericTraitUpdatableDataSink *& apGenericTraitUpdatableDataSink)
 {
@@ -1067,7 +1166,7 @@ WEAVE_ERROR WdmClient::NewDataSink(const ResourceIdentifier & aResourceId, uint3
     PropertyPathHandle handle = kNullPropertyPathHandle;
 
     const TraitSchemaEngine * pEngine = TraitSchemaDirectory::GetTraitSchemaEngine(aProfileId);
-    VerifyOrExit(pEngine != NULL, err = WEAVE_ERROR_INCORRECT_STATE);
+    VerifyOrExit(pEngine != NULL, err = WEAVE_ERROR_INVALID_PROFILE_ID);
 
     VerifyOrExit(mpSubscriptionClient != NULL, err = WEAVE_ERROR_INCORRECT_STATE);
 
@@ -1111,15 +1210,19 @@ exit:
     return err;
 }
 
-WEAVE_ERROR WdmClient::FlushUpdate(void * apAppReqState, DMCompleteFunct onComplete, DMErrorFunct onError)
+WEAVE_ERROR WdmClient::FlushUpdate(void * apAppReqState, DMFlushUpdateCompleteFunct onComplete, DMErrorFunct onError)
 {
     VerifyOrExit(mOpState == kOpState_Idle, WeaveLogError(DataManagement, "FlushUpdate with OpState %d", mOpState));
 
     mpAppReqState       = apAppReqState;
-    mOnComplete.General = onComplete;
+    mOnComplete.FlushUpdate = onComplete;
     mOnError            = onError;
     mOpState            = kOpState_FlushUpdate;
     mpContext           = this;
+
+    mFailedFlushPathStatus.clear();
+    mFailedPaths.clear();
+
     mpSubscriptionClient->FlushUpdate(true);
 
 exit:
@@ -1144,12 +1247,12 @@ WEAVE_ERROR WdmClient::RefreshData(void * apAppReqState, void * apContext, DMCom
 {
     VerifyOrExit(mOpState == kOpState_Idle, WeaveLogError(DataManagement, "RefreshData with OpState %d", mOpState));
 
-    mpAppReqState       = apAppReqState;
-    mOnComplete.General = onComplete;
-    mOnError            = onError;
-    mOpState            = kOpState_RefreshData;
-    mGetDataHandle      = getDataHandleCb;
-    mpContext           = apContext;
+    mpAppReqState           = apAppReqState;
+    mOnComplete.General     = onComplete;
+    mOnError                = onError;
+    mOpState                = kOpState_RefreshData;
+    mGetDataHandle          = getDataHandleCb;
+    mpContext               = apContext;
 
     mpSubscriptionClient->InitiateSubscription();
 

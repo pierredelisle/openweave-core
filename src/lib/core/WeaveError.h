@@ -1757,6 +1757,23 @@ typedef WEAVE_CONFIG_ERROR_TYPE WEAVE_ERROR;
  */
 #define WEAVE_ERROR_UNSUPPORTED_WIRELESS_OPERATING_LOCATION      _WEAVE_ERROR(185)
 
+/**
+ *  @def WEAVE_ERROR_WDM_FLUSH_UPDATE_PATH_FAILED
+ *
+ *  @brief
+ *    The specified path fails to update during wdm flush update operation
+ *
+ */
+#define WEAVE_ERROR_WDM_FLUSH_UPDATE_PATH_FAILED                 _WEAVE_ERROR(186)
+
+/**
+ *  @def WEAVE_ERROR_WDM_FLUSH_UPDATE_PATH_FAILED
+ *
+ *  @brief
+ *    Failed to refresh data during wdm short-lived subscription
+ *
+ */
+#define WEAVE_ERROR_WDM_REFRESH_DATA_FAILED                      _WEAVE_ERROR(187)
 
 /**
  *  @}
